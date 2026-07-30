@@ -1,0 +1,73 @@
+PT2 / ATmega328P-A (U3) ブートローダ設定情報
+================================================
+
+対象: ATmega328P-A, クリスタル非実装（内蔵RC発振器のみ）, 8MHz, 3.3V電源
+
+構成: MCUdude/MiniCore v3, ブートローダ = urboot (urboot_atmega328p_pr_ee_ce.hex)
+      特徴フラグ "weU-jPrac":
+        w = アプリ用 pgm_write_page() 提供
+        e = EEPROM read/write 対応
+        U = 書込み前にページ変更有無をチェック
+        j = ベクタ型ブートローダ（avrdude -c urclock でアプリのリセットベクタを
+            自動パッチ。BOOTRSTフューズに依存しない）
+        P = ベクタ／リセットベクタ自己保護
+        r = リセットフラグをR2レジスタでアプリに引継ぎ
+        a = オートボーレート検出 (F_CPU/8n, n=1..256)
+        c = チップイレーズ対応
+
+取得元 (一次情報, 2026-07-29 取得):
+  hexファイル:
+    https://raw.githubusercontent.com/MCUdude/MiniCore/master/avr/bootloaders/urboot/
+    atmega328p/watchdog_1_s/autobaud/uart0_rxd0_txd1/led+b5/urboot_atmega328p_pr_ee_ce.hex
+  ヒューズ定義 (avr/boards.txt, MCUdude/MiniCore, masterブランチ):
+    328.menu.clock.8MHz_internal.bootloader.low_fuses      = 0xE2
+    328.menu.eeprom.keep.bootloader.high_fuses              = 0xD7
+    328.menu.BOD.2v7.bootloader.extended_fuses              = 0b1111{cfd_bit}101
+    328.menu.variant.modelP.bootloader.cfd_bit               = 1
+      → extended_fuses = 0b11111101 = 0xFD  (ATmega328P, PBバリアントではない)
+    328.menu.clock.8MHz_internal.upload.default_speed        = 38400
+
+確定ヒューズ値
+--------------
+  Low Fuse      : 0xE2   -- 内蔵8MHz RC発振器、CKDIV8未書込み(分周なしフル8MHz動作)
+  High Fuse     : 0xD7   -- EEPROM保持(chip erase時に消去しない)、ブートローダ有効
+  Extended Fuse : 0xFD   -- BOD(ブラウンアウト検出) 2.7V （3.3V電源に対して適切なマージン）
+
+書込みボーレート
+----------------
+  38400 bps（MiniCoreの8MHz内蔵RC既定値。オートボーレート型ブートローダのため
+  厳密な固定値ではないが、この構成での動作実績値としてこれを使用する）
+
+  注記: urbootはオートボーレート検出のため、ホスト側ボーレートは F_CPU/8n
+  (n=1,2,4,...,256) の系列から自動検出される。内蔡RC発振器は個体差・温度依存の
+  周波数誤差が水晶より大きいため、低めのボーレートほど安定する
+  （README: "baud rates under f/260 are recommended for internal oscillators"）。
+  38400bpsはF_CPU/208相当でこの目安の範囲内。通信が不安定な場合は19200/9600への
+  引き下げを検討すること。
+
+PlatformIO設定 (platformio.ini より抜粋)
+-----------------------------------------
+  [env:fuses_bootloader]        ; 初回ISP書込み専用
+  board_hardware.oscillator = internal
+  board_bootloader.type     = urboot
+  board_bootloader.speed    = 38400
+  board_hardware.uart       = uart0
+  board_hardware.bod        = 2.7v
+  board_hardware.eesave     = yes
+  upload_protocol            = avrispmkii   ; USBasp利用時は usbasp に変更
+
+  手順: pio run -e fuses_bootloader -t fuses
+        pio run -e fuses_bootloader -t bootloader
+
+avrdude手動コマンド例 (PlatformIOを使わず直接書き込む場合)
+------------------------------------------------------------
+  avrdude -c avrispmkii -p atmega328p -P usb -b 19200 ^
+    -U lfuse:w:0xE2:m -U hfuse:w:0xD7:m -U efuse:w:0xFD:m ^
+    -U flash:w:urboot_atmega328p_pr_ee_ce.hex:i
+
+重要な注意
+----------
+実機への書き込み前に、上記ヒューズ値・hexファイルを MCUdude/MiniCore リポジトリの
+最新masterで再確認すること。誤ったヒューズ書込みはチップの文鎮化（再ISP書込みでの
+み復旧可能、内蔵RC動作品では最悪ISPでも復旧困難）につながるリスクがあるため、
+本番書込み前に最低1台のテスト基板で動作確認を行うことを推奨する。
