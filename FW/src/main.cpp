@@ -4,63 +4,52 @@
 #include "motor_control.h"
 #include "encoder.h"
 #include "ws2812_control.h"
+#include "motion_control.h"
+#include "sw.h"
 
 void setup() {
   Serial.begin(38400);
 
-  pinMode(PIN_SW, INPUT_PULLUP);
+  swInit();
 
   resistorMatrixInit();
   motorControlInit();
   encoderInit();
+  motionControlInit();
   ledInit();
 
   Serial.println(F("PT2 firmware ready."));
 }
-
-volatile uint8_t stMotor = 0;
 
 void loop() {
 /*
   resistorMatrixScan();
   resistorMatrixPrint();
 
-  Serial.print(F("EncoderL="));
-  Serial.print(encoderLeftCount);
-  Serial.print(F(" EncoderR="));
-  Serial.println(encoderRightCount);
 */
 /*
   // LEDデモ: 全点灯を赤にして表示
   ledSetAll(16, 0, 0);
   ledShow();
 */
-
+/*
   // motor & encoder test
+  Serial.print(motionIsActive() ? F("Moving ") : F("Stopped "));
   Serial.print(F("EncoderL="));
   Serial.print(encoderLeftCount);
   Serial.print(F(" EncoderR="));
   Serial.println(encoderRightCount);
-
-  switch(stMotor) {
-    case 0:
-      setMotorLeft(100);
-      setMotorRight(100);
-      break;
-    case 1:
-      setMotorLeft(0);
-      setMotorRight(0);
-      break;
-    case 2:
-      setMotorLeft(-100);
-      setMotorRight(-100);
-      break;
-    case 3:
-      setMotorLeft(-200);
-      setMotorRight(-200);
-      break;
+*/
+  if (swRead()) {
+    while(swRead()) {
+      delay(10);
+    }
+//    Serial.println(F("Button pressed. Move 1000 pulses."));
+    Serial.println(encoderRightCount);
+    moveByPulses(1000, 5000, 100, 100); // dL, dR, maxSpeed, slope
+    motionWaitComplete();
+    delay(1000);
+    Serial.println(encoderRightCount);
+    // memo: 10%くらい多めに回ってしまう
   }
-  stMotor = (stMotor + 1) % 4;
-
-  delay(1000);
 }
