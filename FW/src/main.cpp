@@ -22,34 +22,23 @@ void setup() {
 }
 
 void loop() {
-/*
   resistorMatrixScan();
   resistorMatrixPrint();
-
-*/
-/*
+  resistorMatrixPrintResistance();
+  delay(500);
   // LEDデモ: 全点灯を赤にして表示
+/*
   ledSetAll(16, 0, 0);
   ledShow();
-*/
-/*
-  // motor & encoder test
-  Serial.print(motionIsActive() ? F("Moving ") : F("Stopped "));
-  Serial.print(F("EncoderL="));
-  Serial.print(encoderLeftCount);
-  Serial.print(F(" EncoderR="));
-  Serial.println(encoderRightCount);
 */
   if (swRead()) {
     while(swRead()) {
       delay(10);
     }
-//    Serial.println(F("Button pressed. Move 1000 pulses."));
-    Serial.println(encoderRightCount);
-    moveByPulses(1000, 5000, 100, 100); // dL, dR, maxSpeed, slope
+    Serial.print(F("EncoderL=")); Serial.print(encoderLeftCount); Serial.print(F(" EncoderR=")); Serial.println(encoderRightCount);
+    moveByPulses(1000, 1000, 100); // dL, dR, maxSpeed
     motionWaitComplete();
     delay(1000);
-    Serial.println(encoderRightCount);
-    // memo: 10%くらい多めに回ってしまう
+    Serial.print(F("EncoderL=")); Serial.print(encoderLeftCount); Serial.print(F(" EncoderR=")); Serial.println(encoderRightCount);
   }
 }

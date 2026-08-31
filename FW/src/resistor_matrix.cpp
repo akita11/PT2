@@ -5,11 +5,11 @@
 // 電源電圧はPT2基板が3.3V駆動のため3.3に変更(判定しきい値自体はVCCに依存しない比の
 // 式のため無影響。表示用の推定抵抗値計算にのみ影響する)。
 static constexpr float VCC = 3.3f;
-static constexpr float R_PD = 10000.0f; // 検出ライン(ResRow)のプルダウン抵抗[Ω]
+static constexpr float R_PD = 10000.0f; // SIG-GND間の共通プルダウン抵抗[Ω]
                                          // (要:基板BOM/実測値で確認・調整)
 static constexpr int ADC_MAX = 1023;    // 10bit ADC
 static constexpr int N_SAMPLES = 8;     // ADC平均回数(ノイズ低減)
-static constexpr unsigned long SETTLE_US = 200; // 駆動切替後の安定待ち[us]
+static constexpr unsigned long SETTLE_US = 200; // マルチプレクサ切替後の安定待ち[us]
 
 const float RM_R_CLASS[RM_N_CLASSES] = {2200.0f, 4700.0f, 10000.0f, 22000.0f, 47000.0f};
 const char *const RM_R_CLASS_LABEL[RM_N_CLASSES] = {"2.2k", "4.7k", "10k", "22k", "47k"};
@@ -19,8 +19,7 @@ static float classThresholdADC[RM_N_CLASSES - 1];
 float rmResistance[4][4];
 int8_t rmClass[4][4];
 
-static const uint8_t RESCOL_PINS[4] = {PIN_RESCOL0, PIN_RESCOL1, PIN_RESCOL2, PIN_RESCOL3};
-static const uint8_t RESROW_PINS[4] = {PIN_RESROW0, PIN_RESROW1, PIN_RESROW2, PIN_RESROW3};
+static const uint8_t MUX_ADDR_PINS[4] = {PIN_RM_MUX_S0, PIN_RM_MUX_S1, PIN_RM_MUX_S2, PIN_RM_MUX_S3};
 
 static void computeClassThresholds() {
   float expectedADC[RM_N_CLASSES];
@@ -62,28 +61,25 @@ static int8_t classifyADC(float adcAvg) {
 
 void resistorMatrixInit() {
   for (uint8_t i = 0; i < 4; i++) {
-    pinMode(RESCOL_PINS[i], OUTPUT);
-    digitalWrite(RESCOL_PINS[i], LOW);
+    pinMode(MUX_ADDR_PINS[i], OUTPUT);
   }
   computeClassThresholds();
 }
 
 void resistorMatrixScan() {
-  for (uint8_t col = 0; col < 4; col++) {
-    for (uint8_t j = 0; j < 4; j++) {
-      digitalWrite(RESCOL_PINS[j], (j == col) ? HIGH : LOW);
-    }
+  // chとセル位置(row,col)の対応: ch = row*4+col (PCB上のYピン配線もこれに合わせる)
+  for (uint8_t ch = 0; ch < 16; ch++) {
+    digitalWrite(MUX_ADDR_PINS[0], (ch >> 0) & 1);
+    digitalWrite(MUX_ADDR_PINS[1], (ch >> 1) & 1);
+    digitalWrite(MUX_ADDR_PINS[2], (ch >> 2) & 1);
+    digitalWrite(MUX_ADDR_PINS[3], (ch >> 3) & 1);
     delayMicroseconds(SETTLE_US);
 
-    for (uint8_t row = 0; row < 4; row++) {
-      float adcAvg = measureRawADC(RESROW_PINS[row]);
-      rmResistance[row][col] = adcToResistance(adcAvg);
-      rmClass[row][col] = classifyADC(adcAvg);
-    }
-  }
-
-  for (uint8_t j = 0; j < 4; j++) {
-    digitalWrite(RESCOL_PINS[j], LOW);
+    float adcAvg = measureRawADC(PIN_RM_MUX_SIG);
+    uint8_t row = ch / 4;
+    uint8_t col = ch % 4;
+    rmResistance[row][col] = adcToResistance(adcAvg);
+    rmClass[row][col] = classifyADC(adcAvg);
   }
 }
 
@@ -101,6 +97,20 @@ void resistorMatrixPrint() {
         Serial.print(RM_R_CLASS_LABEL[c]);
         Serial.print(F("\t"));
       }
+    }
+    Serial.println();
+  }
+}
+
+void resistorMatrixPrintResistance() {
+  Serial.println(F("---- Resistor matrix value [ohm] ----"));
+  for (uint8_t row = 0; row < 4; row++) {
+    Serial.print(F("Row"));
+    Serial.print(row);
+    Serial.print(F(": "));
+    for (uint8_t col = 0; col < 4; col++) {
+      Serial.print(rmResistance[row][col], 0);
+      Serial.print(F("\t"));
     }
     Serial.println();
   }
