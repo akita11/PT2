@@ -14,6 +14,13 @@ static constexpr unsigned long SETTLE_US = 200; // マルチプレクサ切替�
 const float RM_R_CLASS[RM_N_CLASSES] = {2200.0f, 4700.0f, 10000.0f, 22000.0f, 47000.0f};
 const char *const RM_R_CLASS_LABEL[RM_N_CLASSES] = {"2.2k", "4.7k", "10k", "22k", "47k"};
 
+// block vs motion
+// 2.2k : forward
+// 4.7k : left turn
+//  10k : right turn
+//  22k : backward
+//  47k : loop
+
 static float classThresholdADC[RM_N_CLASSES - 1];
 
 float rmResistance[4][4];

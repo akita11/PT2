@@ -5,6 +5,45 @@
 volatile int32_t encoderLeftCount = 0;
 volatile int32_t encoderRightCount = 0;
 
+#ifdef ENCODER_SINGLE_PHASE
+
+// A相の立ち上がりのみでカウントする(回転方向によらず増加のみ)。
+//   左: EL_A=PD3 -> 外部割り込みINT1(立ち上がりエッジ)
+//   右: ER_A=PB0 -> Timer1入力キャプチャICP1(立ち上がりエッジ)
+// いずれもエッジ自体がハードウェアのフラグに保持されるため、他のISRで割り込みが
+// 待たされても、次の立ち上がりまで(1周期以内)に処理されれば取りこぼさない。
+// (PCINTはISR内でレベルを読むため、待たされている間にHigh->Lowと戻ると取りこぼす)
+// Timer1は左モータのPWM(OC1A/OC1B, Arduino標準の8bit位相基準PWM)と共用するが、
+// 入力キャプチャはこのモードでも使え、PWMには影響しない(ICR1の値は使わない)。
+
+ISR(INT1_vect) {
+  encoderLeftCount++;
+}
+
+ISR(TIMER1_CAPT_vect) {
+  encoderRightCount++;
+}
+
+void encoderInit() {
+  pinMode(PIN_EL_A, INPUT);
+  pinMode(PIN_EL_B, INPUT);
+  pinMode(PIN_ER_A, INPUT);
+  pinMode(PIN_ER_B, INPUT);
+
+  noInterrupts();
+  EICRA |= (1 << ISC11) | (1 << ISC10); // INT1: 立ち上がりエッジ
+  EIFR = (1 << INTF1);   // 設定変更時に立った可能性のあるフラグをクリア
+  EIMSK |= (1 << INT1);
+
+  // TCCR1BのWGM/CSビット(Arduinoが設定したPWM用)は保持し、ICES1のみ追加する
+  TCCR1B |= (1 << ICES1); // ICP1: 立ち上がりエッジ
+  TIFR1 = (1 << ICF1);
+  TIMSK1 |= (1 << ICIE1);
+  interrupts();
+}
+
+#else // 2相(4逓倍)デコード
+
 // 2bit状態(prev<<2 | curr)から回転方向(-1/0/+1)を求める標準的な
 // 4遷移(グレイコード)デコードテーブル。
 static const int8_t QDEC_TABLE[16] = {
@@ -30,7 +69,9 @@ static inline void updateRightEncoder() {
   uint8_t b = (PIND & (1 << PIND2)) ? 1 : 0;
   uint8_t newState = (a << 1) | b;
   uint8_t idx = (rightState << 2) | newState;
-  encoderRightCount += QDEC_TABLE[idx];
+  //encoderRightCount += QDEC_TABLE[idx];
+  // 右モータの回転方向を左モータと同じにするため、符号を反転させる
+  encoderRightCount -= QDEC_TABLE[idx];
   rightState = newState;
 }
 
@@ -60,3 +101,5 @@ void encoderInit() {
   PCICR |= (1 << PCIE0) | (1 << PCIE2);
   interrupts();
 }
+
+#endif // ENCODER_SINGLE_PHASE

@@ -7,7 +7,13 @@
 
 #include <Arduino.h>
 
-// 現在の積算カウント値 (符号がそのまま回転方向)
+// 定義すると、A相の立ち上がりエッジのみでカウントする(分解能は1/4)。
+// この場合、カウント値は回転方向によらず増加のみとなる。
+//   左: EL_A=PD3 -> INT1(立ち上がり), 右: ER_A=PB0 -> ICP1(Timer1入力キャプチャ, 立ち上がり)
+// コメントアウトすると従来の2相(4逓倍)デコードになる。
+#define ENCODER_SINGLE_PHASE
+
+// 現在の積算カウント値 (2相デコード時は符号がそのまま回転方向)
 extern volatile int32_t encoderLeftCount;
 extern volatile int32_t encoderRightCount;
 

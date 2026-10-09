@@ -15,6 +15,12 @@ static void driveMotor(uint8_t pinA, uint8_t pinB, int16_t speed) {
   }
 }
 
+// digitalWrite()はそのピンのPWM出力も停止する
+static void brakeMotor(uint8_t pinA, uint8_t pinB) {
+  digitalWrite(pinA, HIGH);
+  digitalWrite(pinB, HIGH);
+}
+
 void motorControlInit() {
   pinMode(PIN_L_A, OUTPUT);
   pinMode(PIN_L_B, OUTPUT);
@@ -29,5 +35,15 @@ void setMotorLeft(int16_t speed) {
 }
 
 void setMotorRight(int16_t speed) {
-  driveMotor(PIN_R_A, PIN_R_B, speed);
+  //driveMotor(PIN_R_A, PIN_R_B, speed);
+  // reverse the direction of the right motor to match the left motor's direction
+  driveMotor(PIN_R_B, PIN_R_A, speed);
+}
+
+void brakeMotorLeft() {
+  brakeMotor(PIN_L_A, PIN_L_B);
+}
+
+void brakeMotorRight() {
+  brakeMotor(PIN_R_A, PIN_R_B);
 }
