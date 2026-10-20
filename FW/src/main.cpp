@@ -16,6 +16,7 @@ void setup() {
   encoderInit();
   motionControlInit();
   ledInit();
+  programStartupLed();
 
   Serial.println(F("PT2 firmware ready."));
 }
@@ -25,13 +26,22 @@ Enc: 7pulse/rot
 298*7 = 2086pulse/rot
 */
 
+uint8_t ledIndex = 0;
+
 void loop() {
-	if (swRead()) {
+  if (swRead()) {
     while (swRead()) {
       delay(10);
     }
+/*
+    ledIndex = (ledIndex + 1) % 16;
+    ledClear();
+    ledSetPixel(ledIndex, 255, 0, 0);
+    ledShow();
+*/
     delay(50); // 離した直後のチャタリングで実行中断と誤判定しないよう待つ
-		encoderLeftCount = 0;
+/*
+    encoderLeftCount = 0;
 		encoderRightCount = 0;
 		motionIsrMaxMicros(true);
 	  moveByPulses(2086, 2086, 100);
@@ -39,8 +49,9 @@ void loop() {
 	  Serial.print(encoderLeftCount); Serial.print(","); Serial.println(encoderRightCount);
 	  motionPrintResult();
 	  Serial.print(F("ISR max[us]=")); Serial.println(motionIsrMaxMicros());
-	  //programRun();
-	}
+*/
+	  programRun();
+  }
 /*
   // for encoder count test
 	if (swRead()){
